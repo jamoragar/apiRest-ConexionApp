@@ -1,0 +1,16 @@
+{
+  "name": "conexion",
+  "version": "2.0.1",
+  "description": "API Rest, que hace de puente entre los sistemas móviles y el servidor",
+  "main": "conexion.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Javier Moraga Rojas, Jamoragar \\,,/",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.18.3",
+    "express": "^4.16.3",
+    "mssql": "^4.2.1"
+  }
+}
