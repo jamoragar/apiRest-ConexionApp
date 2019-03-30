@@ -1,0 +1,9 @@
+{
+    "ventas":{
+        "server": "ventas.tabsa.cl",
+        "database": "PuntoDeVenta",
+        "user": "pos",
+        "password": "p0s.Dv3nt4",
+        "port": 1433
+    }
+}

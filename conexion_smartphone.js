@@ -1,4 +1,5 @@
 //Librerías necesarias para el funcionamiento de la api.
+var bd = require('./bd.json');
 var sql = require('mssql');
 var express = require('express');
 var bodyParser = require('body-parser');
@@ -8,11 +9,11 @@ var app = express();
 
 //Conexión con servidor de TABSA
 var config = {
-	server: 'ventas.tabsa.cl',
-	database: 'PuntoDeVenta',
-	user: 'pos',
-	password: 'p0s.Dv3nt4',
-	port: 1433
+	server: bd.ventas.server,
+	database: bd.ventas.database,
+	user: bd.ventas.user,
+	password: bd.ventas.password,
+	port: bd.ventas.port
 };
 
 const pool = new sql.ConnectionPool(config);
@@ -238,9 +239,10 @@ app.post('/cantPasajeros', function(req, res){
 app.post('/pendientePasajeros', function(req, res){
 	try {
 	 sql.close();
- } catch(err) {
+	 }
+	 catch(err) {
 	 console.log("Error de cierre SQL")
- }
+ 	}
 
 	var id_cruce = req.body.id_cruce;
 	var id_tramo = req.body.id_tramo;
@@ -290,62 +292,38 @@ app.post('/embarcadosPasajeros', function(req, res){
 		console.log(err);
 	});
 });
-
-app.post('/buscarReserva', function(req, res){
+//Query que devuelve el listado de pasajeros embarcados y/o por embarcar, según cruce y tramo. Donde estado = 8 es por embarcar y 16 es embarcados
+app.post('/pasajerosEmbarcadosOrNot', function(req,res){
 	try {
-	 sql.close();
- } catch(err) {
-	 console.log("Error de cierre SQL")
- }
+		sql.close();
+	} catch(err) {
+		console.log("Error de cierre SQL")
+	}
+	
+	var id_cruce = req.body.id_cruce;
+	var id_tramo = req.body.id_tramo;
 
-	var id_reserva = req.body.id_reserva;
-	var identificacion = req.body.identificacion;
-	var nombre = req.body.nombre;
-	var apellido = req.body.apellido;
-	var patente = req.body.patente;
+	var sqlQuery = "SELECT reserva_pasajero.id_reserva, reserva_pasajero.observaciones, reserva_pasajero.id_pasajero, persona.nombre, persona.apellido, nave_asiento.etiqueta as asiento, persona.rut"
+		sqlQuery += " , persona.pasaporte , reserva.estado , iso3166.nombre AS pais , persona.telefono , persona.fecha_nacimiento, tramo.nombre_tramo";
+		sqlQuery += " , tramo.nombre_corto, reserva.necesidad_especial, tv1.estado as estado_embarque, tramo.id_tramo, tp.descripcion as tipo_pasajero";
+		sqlQuery += " , t.valor, reserva.fecha_creacion, cruce.fecha_viaje, cruce.id_viaje, cruce.id_cruce";
+		sqlQuery += " , reserva.agencia_tipo_doc,reserva.agencia_nro_doc,reserva.agencia_forma_pago,reserva.agencia_extras";
+		sqlQuery += " FROM reserva INNER JOIN reserva_pasajero ON reserva.id_reserva = reserva_pasajero.id_reserva";
+		sqlQuery += " INNER JOIN persona ON reserva_pasajero.id_persona = persona.id_persona AND reserva_pasajero.id_pos_persona = persona.id_pos";
+		sqlQuery += " INNER JOIN iso3166 ON persona.nacionalidad = iso3166.codigo INNER JOIN cruce ON reserva.id_cruce = cruce.id_cruce";
+		sqlQuery += " INNER JOIN tramo ON tramo.id_tramo=cruce.id_tramo LEFT OUTER JOIN asiento on asiento.id_pasajero = reserva_pasajero.id_pasajero";
+		sqlQuery += " LEFT OUTER JOIN nave_asiento on nave_asiento.id_asiento = asiento.id_asiento and nave_asiento.id_nave = asiento.id_nave";
+		sqlQuery += " LEFT JOIN tarifa t on t.id_tarifa=reserva_pasajero.id_tarifa";
+		sqlQuery += " LEFT JOIN tipos.persona tp on tp.id_tipo_persona=persona.tipo"
+		sqlQuery += " LEFT JOIN ticket_pasajero_v1 tv1 ON (tv1.rut=persona.rut or tv1.rut=persona.pasaporte) AND tv1.nombre=persona.nombre AND tv1.apellido=persona.apellido AND tv1.id_reserva=reserva_pasajero.id_reserva";
+		sqlQuery += " WHERE cruce.id_cruce = " + id_cruce + " AND (reserva.estado & 64) > 0 AND tv1.estado = 8 and tramo.id_tramo = " + id_tramo
 
-	var sqlQuery = "SELECT r.id_reserva, r.id_pos_persona, r.id_persona, p.rut, p.pasaporte, p.nombre, p.apellido,";
-		sqlQuery += " t.nombre_corto, t.nombre_tramo, r.necesidad_especial, c.fecha_viaje,";
-		sqlQuery += " r.fecha_limite_pago, r.estado, r.tipo_reserva, r.tipo_reserva, r.observaciones, c.horario_cruce,";
-		sqlQuery += " rv.patente, rv.id_vehiculo, rp.id_pasajero, rc.largo, rc.ancho, rc.alto, rc.peso, rc.descripcion"
-		sqlQuery += " FROM reserva r"
-		sqlQuery += " LEFT JOIN reserva_pasajero rp ON rp.id_reserva=r.id_reserva";
-		sqlQuery += " LEFT JOIN persona p ON p.id_persona=rp.id_persona and p.id_pos=rp.id_pos_persona";
-		sqlQuery += " LEFT JOIN cruce c ON c.id_cruce=r.id_cruce";
-		sqlQuery += " LEFT JOIN tramo t ON t.id_tramo=c.id_tramo";
-		sqlQuery += " LEFT JOIN reserva_vehiculo rv ON rv.id_reserva=r.id_reserva";
-		sqlQuery += " LEFT JOIN reserva_carga rc ON r.id_reserva=rc.id_reserva";
-		sqlQuery += " WHERE 1=1 ";
-		if (id_reserva)
-			sqlQuery += " AND r.id_reserva=" + id_reserva + " ";
-		if (identificacion)
-			sqlQuery += " AND (p.rut LIKE '%" + identificacion + "%' or p.pasaporte LIKE '%" + identificacion  +"%') ";
-		if (nombre)
-			sqlQuery += " AND p.nombre LIKE '%" + nombre + "%' ";
-		if (apellido)
-			sqlQuery += " AND p.apellido LIKE '%" + apellido + "%' ";
-		if (patente)
-			sqlQuery += " AND rv.patente LIKE '%" + patente + "%' ";
-		sqlQuery += " ORDER BY r.id_reserva DESC ";
-		
-	const pool9 = new sql.ConnectionPool(config, err =>{
-		if(err){
-			console.log(err);
-		}
-
-		pool9.request().query(sqlQuery, function(err, data){
-			if(err){
-				console.log(err);
-			}
-			res.send(data.recordset);
-			sql.close();
-
-		});
+	query(sqlQuery, data =>{
+		res.send(data);
 	});
-	pool9.on("error", err =>{
-		console.log(err);
-	});
+
 });
+
 
 var query = async function (q, callback) {
   if (!callback) callback = function () {};
