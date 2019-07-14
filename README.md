@@ -1,5 +1,5 @@
 # apiRest-ConexionApp
-API Rest desarrollada con Express, para conectar con la base de datos
+API Rest desarrollada con Express, para conectar con la base de datos SQL Server 2012
 
 # What I used?
 * SQL Server
